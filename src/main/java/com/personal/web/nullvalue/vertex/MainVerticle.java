@@ -11,35 +11,55 @@ import com.github.fge.jsonpatch.mergepatch.JsonMergePatch;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.handler.BodyHandler;
 
 public class MainVerticle extends AbstractVerticle {
-
-  private Map<String, String> values = new HashMap<>();
+  private final Map<String, String> values = new HashMap<>();
 
   @Override
-  public void start(Promise<Void> startPromise) throws Exception {
-    vertx.createHttpServer().requestHandler(req -> {
-      req.response()
-        .putHeader("content-type", "text/plain")
-        .end("Hello from Vert.x!");
-    }).listen(8888, http -> {
-      if (http.succeeded()) {
-        startPromise.complete();
-        System.out.println("HTTP server started on port 8888");
-      } else {
-        startPromise.fail(http.cause());
-      }
+  public void start(final Promise<Void> startPromise) throws Exception {
+    final Router router = Router.router(vertx);
+    router.route("/product*").handler(BodyHandler.create());
+
+    router.post("/product").handler(context -> {
+      final JsonObject payload = context.getBodyAsJson();
+      values.put(payload.getString("id"), context.getBodyAsString());
+
+      context.response().setStatusCode(201).end();
     });
+
+    router.patch("/product").handler(this::merge);
+
+    vertx.createHttpServer()
+      .requestHandler(router)
+      .listen(8080, http -> {
+        if (http.succeeded()) {
+          startPromise.complete();
+          System.out.println("HTTP server started on port 8888");
+        } else {
+          startPromise.fail(http.cause());
+        }
+      });
   }
 
-  private void merge(final String json) throws IOException {
+  private void merge(final RoutingContext json) {
     try {
-      JsonNode target = JsonLoader.fromString(json);
-      JsonNode source = JsonLoader.fromString(values.get("key"));
+      final JsonNode target = JsonLoader.fromString(json.getBodyAsString());
+      final JsonNode source = JsonLoader.fromString(values.get(json.getBodyAsJson().getString("id")));
 
-      JsonMergePatch patch = JsonMergePatch.fromJson(source);
-      patch.apply(target);
-    } catch (JsonPatchException e) {
+      final JsonMergePatch patch = JsonMergePatch.fromJson(target);
+      JsonNode result = patch.apply(source);
+
+      System.out.println("Result is: " + result.asText());
+
+      json.response()
+          .setStatusCode(200)
+          .putHeader("content-type", "application/json; charset=utf-8")
+          .end(result.toPrettyString());
+    } catch (JsonPatchException | IOException e) {
       e.printStackTrace();
     }
   }
