@@ -11,13 +11,13 @@ import com.github.fge.jsonpatch.mergepatch.JsonMergePatch;
 
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
-import io.vertx.core.json.JsonObject;
+import io.vertx.core.json.Json;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
 
 public class MainVerticle extends AbstractVerticle {
-  private final Map<String, String> values = new HashMap<>();
+  private final Map<String, Product> values = new HashMap<>();
 
   @Override
   public void start(final Promise<Void> startPromise) throws Exception {
@@ -25,9 +25,10 @@ public class MainVerticle extends AbstractVerticle {
     router.route("/product*").handler(BodyHandler.create());
 
     router.post("/product").handler(context -> {
-      final JsonObject payload = context.getBodyAsJson();
-      values.put(payload.getString("id"), context.getBodyAsString());
+      String body = context.getBodyAsString();
 
+      Product product = Json.decodeValue(body, Product.class);
+      values.put(product.getId(), product);
       context.response().setStatusCode(201).end();
     });
 
@@ -48,7 +49,7 @@ public class MainVerticle extends AbstractVerticle {
   private void merge(final RoutingContext json) {
     try {
       final JsonNode target = JsonLoader.fromString(json.getBodyAsString());
-      final JsonNode source = JsonLoader.fromString(values.get(json.getBodyAsJson().getString("id")));
+      final JsonNode source = JsonLoader.fromString(Json.encode(values.get(json.getBodyAsJson().getString("id"))));
 
       final JsonMergePatch patch = JsonMergePatch.fromJson(target);
       JsonNode result = patch.apply(source);
