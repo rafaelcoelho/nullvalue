@@ -15,7 +15,9 @@ import io.vertx.core.json.Json;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.ext.web.handler.BodyHandler;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class MainVerticle extends AbstractVerticle {
   private final Map<String, Product> values = new HashMap<>();
 
@@ -39,7 +41,7 @@ public class MainVerticle extends AbstractVerticle {
       .listen(8080, http -> {
         if (http.succeeded()) {
           startPromise.complete();
-          System.out.println("HTTP server started on port 8888");
+          log.info("HTTP server started on port 8888");
         } else {
           startPromise.fail(http.cause());
         }
@@ -54,7 +56,10 @@ public class MainVerticle extends AbstractVerticle {
       final JsonMergePatch patch = JsonMergePatch.fromJson(target);
       JsonNode result = patch.apply(source);
 
-      System.out.println("Result is: " + result.asText());
+      Product product = Json.decodeValue(Json.encode(result), Product.class);
+      values.put(product.getId(), product);
+
+      log.debug("Result is: {}", result.asText());
 
       json.response()
           .setStatusCode(200)
