@@ -41,7 +41,7 @@ public class MainVerticle extends AbstractVerticle {
       .listen(8080, http -> {
         if (http.succeeded()) {
           startPromise.complete();
-          log.info("HTTP server started on port 8888");
+          log.debug("HTTP server started on port 8888");
         } else {
           startPromise.fail(http.cause());
         }
